@@ -2,6 +2,52 @@
 
 Each epic is a self-contained vertical slice of work. Stories within an epic are ordered; the verification story at the end of each epic gates the start of dependent epics.
 
+### Data Structure
+
+Epics and stories follow a strict format so the sync script can parse them reliably. **Do not deviate from this structure.**
+
+**Epic heading**
+```
+## Epic {N} — {Title}
+```
+
+**Epic body**
+```
+> {one-line description}                     ← required
+
+**Sequencing:** {note}                        ← optional
+
+## Stories
+
+| # | Story | Status |
+|---|-------|--------|
+| S{N}.{M} | {story text} | `{status}` |
+```
+
+**Valid status values**
+
+| Value | Meaning |
+|-------|---------|
+| `todo` | Not started |
+| `in_progress` | Actively being worked |
+| `done` | Complete — triggers GHA sync to check the box in GitHub Issues |
+
+**Rules**
+- Story IDs must follow `S{epic_number}.{story_number}` exactly (e.g. `S3.2`)
+- The description blockquote (`>`) is required on every epic
+- Status must be one of the three values above — any other value is ignored by the sync script
+- Story table rows are split on ` | ` (space-pipe-space) — avoid pipes in story text
+
+---
+
+### Two-phase structure (steps 3–9)
+
+Each workflow step has two phases:
+1. **Plan phase** — Claude reasons, produces JSON, user iterates until approval. JSON is the source of truth.
+2. **Execute phase** — Claude reads the approved JSON and writes actual files (test code, implementation, docs). Nothing is written to disk until the plan is approved.
+
+Steps that are plan-only (`context`, `spec`, `run-tests`) have no execute phase — their output is the JSON itself.
+
 ---
 
 ## Sequencing
@@ -72,7 +118,8 @@ Epics 11–13 start once core steps work (can run in parallel with each other)
 | S5.1 | Write `prompts/tests.md` | `todo` |
 | S5.2 | Implement `steps/tests.py` — reads `context.json` + `spec.json`, calls Sonnet, writes `tests.json` | `todo` |
 | S5.3 | Wire into routing | `todo` |
-| S5.4 | **Verify:** `tests.json` covers all edge cases listed in `spec.json`; mocking requirements are documented | `todo` |
+| S5.4 | **Execute:** write actual test files based on approved `tests.json` — Claude uses `write_file` tool to create test stubs for all cases in the spec | `todo` |
+| S5.5 | **Verify:** `tests.json` covers all edge cases listed in `spec.json`; test files exist on disk and fail (red) before `code` step runs | `todo` |
 
 ---
 
@@ -83,7 +130,8 @@ Epics 11–13 start once core steps work (can run in parallel with each other)
 | S6.1 | Write `prompts/code.md` | `todo` |
 | S6.2 | Implement `steps/code.py` — reads `context.json` + `spec.json` (NOT `tests.json`), calls Sonnet, writes `code.json` | `todo` |
 | S6.3 | Wire into routing | `todo` |
-| S6.4 | **Verify:** `code.json` implementation tasks map directly to spec's API contracts and data models | `todo` |
+| S6.4 | **Execute:** write implementation files based on approved `code.json`; Claude reads the test files written by `tests` execute phase as TDD ground truth during implementation | `todo` |
+| S6.5 | **Verify:** `code.json` implementation tasks map directly to spec's API contracts; written code makes the test suite go green | `todo` |
 
 ---
 
@@ -109,7 +157,8 @@ Epics 11–13 start once core steps work (can run in parallel with each other)
 | S8.1 | Write `prompts/review.md` | `todo` |
 | S8.2 | Implement `steps/review.py` — reads `spec.json` + `tests.json` + `code.json` + `run_tests.json` + live `git diff`; calls Haiku; escalates to Sonnet on divergences; writes `review.json` | `todo` |
 | S8.3 | Wire into routing | `todo` |
-| S8.4 | **Verify:** linting runs, diff reviewed against spec, commit message drafted, blockers list is present | `todo` |
+| S8.4 | **Execute:** apply any linting fixes from `review.json`; stage files for commit using the drafted commit message | `todo` |
+| S8.5 | **Verify:** linting runs, diff reviewed against spec, commit message drafted, blockers list is present; no uncommitted linting fixes remain | `todo` |
 
 ---
 
@@ -120,7 +169,8 @@ Epics 11–13 start once core steps work (can run in parallel with each other)
 | S9.1 | Write `prompts/merge.md` | `todo` |
 | S9.2 | Implement `steps/merge.py` — reads all prior JSONs, calls Haiku, writes `merge.json` (changelog entry, docs updates, PR description, stale TODO scan) | `todo` |
 | S9.3 | Wire into routing | `todo` |
-| S9.4 | **Verify:** `merge.json` contains coherent changelog entry and PR description draft; stale TODO scan runs | `todo` |
+| S9.4 | **Execute:** write `CHANGELOG.md` entry, update docs files, and add/update `CLAUDE.md` section — all based on approved `merge.json` | `todo` |
+| S9.5 | **Verify:** `merge.json` contains coherent changelog entry and PR description draft; stale TODO scan runs; written files match the merge plan | `todo` |
 
 ---
 

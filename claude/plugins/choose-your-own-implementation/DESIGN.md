@@ -145,7 +145,7 @@ Steps are invoked as `python workflow.py step <name>`. The `/design-*` names are
 
 **Inputs (user provides at invocation):**
 - Brief description of what they want to build or fix
-- Optionally: ticket/issue reference
+- Optionally: GitHub epic/story reference (e.g. `Epic 6 / S6.2`) — links this run to a tracked story in `KANBAN.md`
 
 **Claude tasks:**
 - Explore the codebase to find affected files, services, utilities
@@ -168,10 +168,13 @@ Steps are invoked as `python workflow.py step <name>`. The `/design-*` names are
       "tradeoffs": "string"
     }
   ],
+  "github_reference": { "epic": 6, "story": "S6.2" },
   "step_status": "complete",
   "timestamp": "ISO8601"
 }
 ```
+
+`github_reference` is `null` if no GitHub reference was provided at invocation.
 
 **Model:** `claude-haiku-4-5-20251001` — fast and cheap for codebase exploration
 
@@ -365,6 +368,7 @@ Does NOT read `code.json` — code quality is assessed by running the tests, not
 - Add/update a `CLAUDE.md` section describing what this change does and where to find it
 - Scan for stale TODOs or commented-out code
 - Draft PR description
+- If `context.json` has a `github_reference`, update `KANBAN.md` — set that story's status to `done`
 
 **Output schema — `merge.json`:**
 ```json
@@ -374,12 +378,45 @@ Does NOT read `code.json` — code quality is assessed by running the tests, not
   "claude_md_section": "string",
   "stale_todos": [],
   "pr_description_draft": "string",
+  "kanban_updated": true,
+  "kanban_story_closed": "S6.2",
   "step_status": "complete",
   "timestamp": "ISO8601"
 }
 ```
 
 **Model:** `claude-haiku-4-5-20251001`
+
+---
+
+## GitHub Integration
+
+The tool optionally links each workflow run to a specific story in `KANBAN.md`, creating a closed loop between doing the work and tracking it.
+
+### How the loop works
+
+```
+1. User invokes `context` step with a GitHub reference (e.g. "Epic 6 / S6.2")
+2. Reference is stored in context.json and flows through all subsequent steps
+3. merge step reads context.json → updates KANBAN.md, setting S6.2 status to "done"
+4. KANBAN.md commit triggers the sync-kanban GHA workflow
+5. GHA calls Claude Haiku → regenerates issue body → patches GitHub Issue #6 (checkbox checked)
+6. When all stories in an epic are done → issue auto-closes
+```
+
+### Reference is optional
+
+If no GitHub reference is provided at invocation, `github_reference` is `null` in `context.json` and the `merge` step skips the KANBAN.md update. The tool works fully without GitHub.
+
+### GHA sync script
+
+`.github/workflows/sync-kanban.yml` triggers on pushes to `main` that touch `KANBAN.md`. It runs `.github/scripts/sync_kanban.py`, which:
+1. Regex-parses `KANBAN.md` using the data structure contract defined in `KANBAN.md`
+2. Fetches current `epic`-labelled GitHub Issues
+3. Calls Claude Haiku to generate updated issue bodies from the parsed epic data
+4. Patches each issue via the GitHub API; closes issues where all stories are `done`
+
+Requires `ANTHROPIC_API_KEY` to be set as a repo secret.
 
 ---
 
