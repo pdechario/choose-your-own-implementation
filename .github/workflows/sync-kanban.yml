@@ -1,0 +1,30 @@
+name: Sync KANBAN to GitHub Issues
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'claude/plugins/choose-your-own-implementation/KANBAN.md'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install anthropic
+
+      - name: Sync KANBAN to GitHub Issues
+        run: python .github/scripts/sync_kanban.py
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
