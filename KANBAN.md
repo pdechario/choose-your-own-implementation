@@ -60,6 +60,10 @@ Epics 11–13 start once core steps work (can run in parallel with each other)
 
 ---
 
+## Start Epics
+
+---
+
 ## Epic 1 — Foundation & CLI Scaffold
 
 > Get the repo installable and the CLI routing working. Everything else blocks on this.
@@ -219,3 +223,9 @@ Epics 11–13 start once core steps work (can run in parallel with each other)
 | S13.2 | Document `.env` fallback for API key (using `python-dotenv`) | `todo` |
 | S13.3 | Run full end-to-end verification on a real project (see Verification section in DESIGN.MD) | `todo` |
 | S13.4 | Decide and document distribution path: local editable install (`pip install -e .`) vs PyPI publish | `todo` |
+
+---
+
+## End Epics
+
+---

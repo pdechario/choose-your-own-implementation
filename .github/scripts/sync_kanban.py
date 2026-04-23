@@ -62,20 +62,45 @@ def parse_kanban(content):
             line = line.strip()
             if not line.startswith('|') or not line.endswith('|'):
                 continue
-            # Split row on " | " — per the data structure contract
-            cols = [c.strip() for c in line.split(' | ')]
-            if len(cols) < 4:
+
+            try:
+                # Expected table format:
+                # | # | Story | Status |
+                # | S{N}.{M} | {story text} | `{status}` |
+                # Remove leading/trailing pipes and split
+                line_content = line[1:-1].strip()
+                cols = [c.strip() for c in line_content.split('|')]
+                # Remove trailing empty columns
+                while cols and not cols[-1]:
+                    cols.pop()
+
+                if len(cols) < 3:
+                    continue
+
+                story_id = cols[0]
+                if not re.match(r'^S\d+\.\d+$', story_id):
+                    continue  # skip header, separator rows
+
+                status = cols[-1].strip('`').strip()
+                if not status:
+                    print(f"Warning: empty status for {story_id} — skipping", file=sys.stderr)
+                    continue
+
+                if status not in VALID_STATUSES:
+                    print(f"Warning: invalid status '{status}' for {story_id} — skipping", file=sys.stderr)
+                    continue
+
+                # Story text is the middle column(s)
+                story_text = '|'.join(cols[1:-1]).strip() if len(cols) > 2 else ""
+                if not story_text:
+                    print(f"Warning: empty story text for {story_id} — skipping", file=sys.stderr)
+                    continue
+
+                stories.append({"id": story_id, "text": story_text, "status": status})
+
+            except (IndexError, AttributeError) as e:
+                print(f"Warning: error parsing story row '{line}': {e}", file=sys.stderr)
                 continue
-            story_id = cols[1]
-            if not re.match(r'^S\d+\.\d+$', story_id):
-                continue  # skip header, separator rows
-            status = cols[-2].strip('`')
-            if status not in VALID_STATUSES:
-                print(f"Warning: invalid status '{status}' for {story_id} — skipping", file=sys.stderr)
-                continue
-            # Story text spans everything between id and status columns
-            story_text = ' | '.join(cols[2:-2]) if len(cols) > 4 else cols[2]
-            stories.append({"id": story_id, "text": story_text, "status": status})
 
         if stories:
             epics.append({
@@ -133,34 +158,58 @@ def generate_issue_body(client, epic):
 
 
 def sync():
-    with open(KANBAN_PATH) as f:
-        content = f.read()
+    try:
+        with open(KANBAN_PATH) as f:
+            content = f.read()
+    except FileNotFoundError:
+        print(f"Error: KANBAN file not found at {KANBAN_PATH}", file=sys.stderr)
+        sys.exit(1)
+    except IOError as e:
+        print(f"Error reading KANBAN file: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    if not content.strip():
+        print("Error: KANBAN.md is empty", file=sys.stderr)
+        sys.exit(1)
 
     epics = parse_kanban(content)
     if not epics:
-        print("No epics parsed from KANBAN.md — check the data structure format")
+        print("Error: No epics parsed from KANBAN.md — check the data structure format", file=sys.stderr)
         sys.exit(1)
 
     print(f"Parsed {len(epics)} epics from KANBAN.md")
 
-    issues = fetch_epic_issues()
-    client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY from env
+    try:
+        issues = fetch_epic_issues()
+    except Exception as e:
+        print(f"Error fetching GitHub issues: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY from env
+    except Exception as e:
+        print(f"Error initializing Anthropic client: {e}", file=sys.stderr)
+        sys.exit(1)
 
     for epic in epics:
         issue = issues.get(epic["number"])
         if not issue:
-            print(f"No GitHub Issue found for Epic {epic['number']}, skipping")
+            print(f"Warning: No GitHub Issue found for Epic {epic['number']}, skipping", file=sys.stderr)
             continue
 
-        new_body = generate_issue_body(client, epic)
-        all_done = all(s["status"] == "done" for s in epic["stories"])
-        new_state = "closed" if all_done else "open"
+        try:
+            new_body = generate_issue_body(client, epic)
+            all_done = all(s["status"] == "done" for s in epic["stories"])
+            new_state = "closed" if all_done else "open"
 
-        github_request("PATCH", f"/repos/{REPO}/issues/{issue['number']}", {
-            "body": new_body,
-            "state": new_state,
-        })
-        print(f"Epic {epic['number']} → Issue #{issue['number']} updated ({new_state})")
+            github_request("PATCH", f"/repos/{REPO}/issues/{issue['number']}", {
+                "body": new_body,
+                "state": new_state,
+            })
+            print(f"Epic {epic['number']} → Issue #{issue['number']} updated ({new_state})")
+        except Exception as e:
+            print(f"Error updating Epic {epic['number']}: {e}", file=sys.stderr)
+            continue
 
 
 if __name__ == "__main__":
