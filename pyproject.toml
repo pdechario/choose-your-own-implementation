@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "choose-your-own-implementation"
+version = "0.1.0"
+description = "choose-your-own-implementation is a local development workflow that seeks to make the most efficient use of AI tools."
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [
+    {name = "Persephone Dechario", email = "persephone.dechario@gmail.com"}
+]
+keywords = ["ClaudeAPI", "AI assisted development"]
+
+dependencies = [
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "black>=22.0",
+    "isort>=5.0",
+    "mypy>=0.990",
+    "flake8>=4.0",
+]
+
+[project.urls]
+Repository = "https://github.com/pdechario/choose-your-own-implementation"
+
+# Pytest configuration
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+addopts = "--cov=my_package --cov-report=term-missing"
+
+# Black configuration (code formatter)
+[tool.black]
+line-length = 88
+target-version = ["py38"]
+
+# isort configuration (import sorter)
+[tool.isort]
+profile = "black"
+line_length = 88
+skip_gitignore = true
+
+# mypy configuration (type checker)
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+# flake8 configuration (linter)
+[tool.flake8]
+max-line-length = 88
+extend-ignore = ["E203", "W503"]
+exclude = [".git", "__pycache__", "build", "dist"]
