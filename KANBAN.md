@@ -70,7 +70,7 @@ Epics 11–13 start once core steps work (can run in parallel with each other)
 
 | # | Story | Status |
 |---|-------|--------|
-| S1.1 | Init `pyproject.toml` with deps: `anthropic`, `click`, `python-dotenv` | `todo` |
+| S1.1 | Init `pyproject.toml` with deps: `anthropic`, `click`, `python-dotenv` | `complete` |
 | S1.2 | Implement `workflow.py` — CLI entry; `python workflow.py step <name>` routes to the right step module | `todo` |
 | S1.3 | Implement `state.py` — read/write `.claude/workflow/*.json`; enforce schema; mark downstream steps `pending` on backward navigation | `todo` |
 | S1.4 | Implement `models.py` — model selection per step + auto-escalation rules (Haiku → Sonnet on failures/divergences) | `todo` |
