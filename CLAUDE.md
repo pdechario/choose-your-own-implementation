@@ -1,13 +1,16 @@
 ## Quick Navigation
 
-| Section | Purpose | Files |
-|---------|---------|-------|
-| [Project Overview](#project-overview) | What this tool does | DESIGN.md |
-| [Foundation](#foundation) | CLI scaffold, state machine, config | workflow.py, state.py, models.py |
-| [Tool Definitions](#tool-definitions) | SDK tool schemas, call loop | tools.py |
-| [Workflow Steps](#workflow-steps) | The 7 bidirectional steps | steps/*.py, prompts/*.md |
-| [Token Optimization](#token-optimization) | Cost reduction strategies | (cross-cutting) |
-| [GitHub Integration](#github-integration) | KANBAN sync to Issues | .github/scripts/sync_kanban.py, KANBAN.md |
+| Line | Section | Purpose | Files |
+|------|---------|---------|-------|
+| 17 | [Project Overview](#project-overview) | What this tool does | DESIGN.md |
+| 33 | [Foundation](#foundation) | CLI scaffold, state machine, config | workflow.py, state.py, models.py |
+| 51 | [Tool Definitions](#tool-definitions) | SDK tool schemas, call loop | tools.py |
+| 76 | [Workflow Steps](#workflow-steps) | The 7 bidirectional steps | steps/*.py, prompts/*.md |
+| 111 | [Token Optimization](#token-optimization) | Cost reduction strategies | (cross-cutting) |
+| 132 | [GitHub Integration](#github-integration) | KANBAN sync to Issues | .github/scripts/sync_kanban.py, KANBAN.md |
+| 175 | [Story Context](#story-context) | Prior implementation decisions, file-to-story lookup | STORY_CONTEXT.md |
+
+Line numbers in this table are file line numbers. Use `Read` with `offset: <line>` to jump directly to a section. Update these numbers when sections are added or moved.
 
 ---
 
@@ -166,6 +169,32 @@ Valid statuses: `todo`, `in_progress`, `done`.
 - Modifying the sync script (understand the markdown table parsing; test on a real KANBAN.md)
 - Adding fields to KANBAN.md (keep the table format; update the regex parser)
 - Linking a workflow run to a story (pass `github_reference` at context step invocation; `merge` step updates KANBAN.md)
+
+---
+
+## Story Context
+
+**Summary:** Per-story implementation log. Captures which files each story touched, what it depended on, what depends on it, and any key decisions or gotchas from implementation.
+
+**File:** `STORY_CONTEXT.md`
+
+**When to use it:**
+- You know which files you are about to read or modify
+- You want to know if a prior story already touched those files and what decisions it made there
+- You are debugging unexpected behavior in a file and want to know its implementation history
+
+**How to use it:**
+1. Identify the files you are about to impact (from the user's request or your codebase exploration)
+2. Open `STORY_CONTEXT.md` and search for those filenames in the Primary Files, Upstream, or Downstream columns
+3. For any matching story, read its Notes section (linked from the table) before proceeding
+
+**What not to do:**
+- Do not read this file automatically at session start
+- Do not traverse every row — look up by file name, not by story order
+- Do not consult this file unless you have a concrete file or story ID in mind
+
+**How to update it:**
+When a story is complete, add a row to the table. If there is a non-obvious decision, pattern, or gotcha, add a `### S{N}.{M}` section below the table and link to it from the Notes column. If nothing is noteworthy, put `—` in Notes.
 
 ---
 
