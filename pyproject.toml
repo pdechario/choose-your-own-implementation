@@ -17,6 +17,7 @@ dependencies = [
     "anthropic>=0.97.0",
     "click>=8.3.3",
     "python-dotenv>=1.2.2",
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
@@ -36,7 +37,6 @@ Repository = "https://github.com/pdechario/choose-your-own-implementation"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = "test_*.py"
-addopts = "--cov=my_package --cov-report=term-missing"
 
 # Black configuration (code formatter)
 [tool.black]

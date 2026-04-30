@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import importlib
 import sys
+from pathlib import Path
 
 import anthropic
 import click
 from dotenv import load_dotenv
+
+import state
 
 load_dotenv()
 
@@ -61,9 +64,15 @@ def step(name: str) -> None:
         sys.exit(1)
 
     client = anthropic.Anthropic()
-    state: dict = {}
+    project_root = Path.cwd()
 
-    step_module.run(client, state)
+    try:
+        manifest = state.load_manifest(project_root)
+    except state.StateError as e:
+        click.echo(str(e), err=True)
+        sys.exit(1)
+
+    step_module.run(client, project_root, manifest)
 
 
 if __name__ == "__main__":
