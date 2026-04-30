@@ -35,16 +35,19 @@ Users can move forward, revise a prior step (which invalidates downstream steps)
 **Summary:** Core CLI setup, state persistence, model selection.
 
 **Key files:**
-- `workflow.py` — Entry point (`python workflow.py step <name>`); orchestrates the tool call loop
-- `state.py` — Read/write `.claude/workflow/*.json`; enforce schemas; mark downstream steps `pending` on backward navigation
+- `workflow.py` — Entry point (`python workflow.py step <name>`); uses Click's `@cli.command()` dispatch; currently orchestrates the tool call loop (moves to dedicated module in S2.2)
+- `state.py` — Read/write `.claude/workflow/*.json` as opaque strings; no content interpretation; mark downstream steps `pending` on backward navigation
 - `models.py` — Select Haiku vs Sonnet per step; auto-escalate on divergence/failure; configure prompt caching headers
 
-**Scope:** Minimal. Workflow.py routes to step modules; state.py is a thin read/write layer. Models.py maps steps to (model, system_prompt_path).
+**Scope:** Minimal. Workflow.py routes to step modules via Click; state.py is a thin opaque read/write layer. Models.py maps steps to (model, system_prompt_path).
+
+**Step module contract (S1.3):** All step modules use signature `run(client, project_root, manifest)` (changed from `run(client, state)` in S1.3).
 
 **When to dive deep:**
-- Fixing bugs in state transitions (backward navigation, pending invalidation)
-- Adding a new step (need to register in models.py)
+- Fixing bugs in state transitions (backward navigation cascades statuses and appends history; see S1.3 notes)
+- Adding a new step (register in models.py; implement as `run(client, project_root, manifest)`)
 - Tuning model escalation rules or changing a step's model tier
+- Understanding state.py: reads/writes opaque JSON strings; decision objects with IDs are a convention written by steps (see S1.3)
 
 ---
 
@@ -220,6 +223,10 @@ Key integration test: run a full workflow end-to-end on a real small feature; in
 
 ## End Sections for Claude
 
-## Future Enhancements
+## Future Work
 
-- Implementation of JSON. Considerations: When is the right time to implement it into code. Need to see how the JSON translates. And how this will work with refactoring within the PR. 
+**S1.3 Deferred (per notes):**
+- Impact analysis generation deferred to a later story (currently backward navigation just cascades statuses)
+
+**Tool call loop (S1.2):**
+- Currently in `workflow.py`; scheduled to move to dedicated module in S2.2

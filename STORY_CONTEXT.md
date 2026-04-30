@@ -1,6 +1,21 @@
 # STORY_CONTEXT.md — Implementation Context Log
 
-One row per story. Look this file up when you know which files are about to be touched and want to find prior stories that affected those files. Do not traverse this file on session start — use it on-demand.
+**Purpose:** This document records implementation decisions, key patterns, and gotchas from completed stories (S1+). When you know which files you're about to modify, look up their story history here to understand prior decisions and avoid breaking changes. Use this to learn what patterns were established and what deferred work exists.
+
+**Note:** For the design specification and what remains to be built, see [DESIGN.md](DESIGN.md).
+
+---
+
+## Quick Navigation
+
+| Line | Section | Purpose |
+|------|---------|---------|
+| 9 | [Story Index](#story-index) | Look up stories by file impact and status |
+| 18+ | [Story Notes](#story-notes) | Detailed notes per story (S1.2, S1.3, etc.) |
+
+---
+
+## Story Index
 
 | # | Keywords | Primary Files | Upstream | Downstream | Notes |
 |---|---|---|---|---|---|
@@ -10,11 +25,13 @@ One row per story. Look this file up when you know which files are about to be t
 
 ---
 
-## S1.2
+## Story Notes
+
+### S1.2
 
 `workflow.py` uses Click's `@cli.command()` dispatch pattern — do not switch to Typer without updating the routing logic in S10.1–S10.3, which assume Click's `invoke` API. The tool call loop lives here temporarily; S2.2 moves it to a dedicated module.
 
-## S1.3
+### S1.3
 
 `state.py` is a thin persistence layer: `load_manifest`, `save_manifest`, `load_step`, `save_step`, `mark_backward_navigation`, `now_iso`. No content interpretation — step files are opaque markdown strings. Decision objects with IDs are a convention (written by step modules, not parsed by state.py); other object types (test failures, etc.) will follow.
 

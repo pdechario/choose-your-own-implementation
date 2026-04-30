@@ -1,5 +1,29 @@
 # choose-your-own-implementation — Design Spec
 
+**Purpose:** This document is the source of truth for the architecture and requirements of the tool. It describes what the tool should do, how it should work, and what remains to be implemented. Use this when you need to understand the design decisions, workflow steps, or integration points.
+
+**Note:** For implementation notes about completed work, decisions made during S1+, and how prior stories affect future files, see [STORY_CONTEXT.md](STORY_CONTEXT.md).
+
+---
+
+## Quick Navigation
+
+| Line | Section | Purpose | Files |
+|------|---------|---------|-------|
+| 15 | [How It Works](#how-it-works) | Architecture overview, tool flow | workflow.py, state.py, models.py, tools.py |
+| 38 | [Directory Layout](#directory-layout) | File structure and state files | all project files |
+| 84 | [Workflow Navigation](#workflow-navigation) | CYOA UX, forward/backward/iteration | (cross-cutting) |
+| 148 | [The 7 Steps](#the-7-steps) | Step-by-step specifications and schemas | steps/*.py, prompts/*.md |
+| 400 | [GitHub Integration](#github-integration) | KANBAN sync, story references | .github/scripts/sync_kanban.py, KANBAN.md |
+| 437 | [Token Efficiency](#token-efficiency) | Model tiering, caching, selective injection | (cross-cutting) |
+| 459 | [Open Questions](#open-questions) | Unresolved design questions | (varies by question) |
+| 475 | [Implementation Progress](#implementation-progress) | S1+ completion status | STORY_CONTEXT.md |
+| 495 | [Verification](#verification) | Testing checklist for each step | (integration test) |
+
+Line numbers in this table are file line numbers. Use `Read` with `offset: <line>` to jump directly to a section. Update these numbers when sections are added or moved.
+
+---
+
 A Python CLI tool (using the Anthropic SDK directly) that guides software development through a structured, spec-driven workflow. Covers new feature development and bug fixes. Exposes 7 steps, each representing a phase. State persists in JSON files so work survives session restarts. The UX is choose-your-own-adventure style — at each decision point the tool presents branching options rather than a rigid linear pipeline. Intended to be open-sourced.
 
 Claude Code integration (slash commands) is an optional layer on top — the core tool runs standalone from any terminal.
@@ -8,9 +32,9 @@ Claude Code integration (slash commands) is an optional layer on top — the cor
 
 ## How It Works
 
-`workflow.py` is the entrypoint — a Python CLI that calls the Anthropic SDK directly. It manages state, selects the model per step, builds the prompt (injecting only the fields needed from prior steps), calls `anthropic.Anthropic().messages.create(...)`, and writes output JSON. No Claude Code dependency required.
+`workflow.py` is the entrypoint — a Click-based Python CLI that calls the Anthropic SDK directly. It manages state, selects the model per step, builds the prompt (injecting only the fields needed from prior steps), calls `anthropic.Anthropic().messages.create(...)`, and writes output JSON. No Claude Code dependency required.
 
-Tools needed by each step (file reads, bash commands, git diff) are implemented as Anthropic SDK tool definitions — Python handles the tool call loop itself.
+Tools needed by each step (file reads, bash commands, git diff) are implemented as Anthropic SDK tool definitions — Python handles the tool call loop itself (currently in `workflow.py`; scheduled to move to a dedicated module in S2.2).
 
 ```
 terminal
@@ -444,29 +468,35 @@ Requires `ANTHROPIC_API_KEY` to be set as a repo secret.
 
 ---
 
-## Open Questions (to resolve before implementation)
+## Open Questions
 
-1. **Tool scope per step:** Which tools does each step need? All steps likely need `read_file` and `run_bash`. Only `context` needs broad file traversal; `review` needs `git_diff`. Define the minimal tool set per step to avoid unnecessary surface area.
+1. **Tool scope per step:** Which tools does each step need? All steps likely need `read_file` and `run_bash`. Only `context` needs broad file traversal; `review` needs `git_diff`. Define the minimal tool set per step to avoid unnecessary surface area. (Pending S2+)
 
-2. **Distribution:** Install via `pip install -e .` from the plugin directory, or publish to PyPI? For open-source sharing, PyPI is better UX. For now, local editable install is fine.
+2. **Distribution:** Install via `pip install -e .` from the plugin directory, or publish to PyPI? For open-source sharing, PyPI is better UX. For now, local editable install is fine. (Resolved in S1.1: using `pip install -e .`)
 
-3. **API key:** Read `ANTHROPIC_API_KEY` from env var; fall back to `.env` in the project root. Document this clearly in setup instructions.
+3. **API key:** Read `ANTHROPIC_API_KEY` from env var; fall back to `.env` in the project root. Document this clearly in setup instructions. (Pending S2+)
 
-4. **Claude Code integration:** Verify how `plugin.yaml` should reference the CLI command so slash commands work correctly from the IDE. This is secondary — solve after the CLI works standalone.
+4. **Claude Code integration:** Verify how `plugin.yaml` should reference the CLI command so slash commands work correctly from the IDE. This is secondary — solve after the CLI works standalone. (Pending S10+)
+
+5. **Click vs Typer:** S1.2 chose Click for dispatch. Do not switch to Typer without updating routing logic in S10.1–S10.3. (Resolved in S1.2)
 
 ---
 
-## First Steps (Implementation Order)
+## Implementation Progress
 
-1. Set up `pyproject.toml` with `anthropic` and `click` (or `typer`) as deps; verify a basic SDK call works
-2. Scaffold `state.py` — the state manager is the foundation everything else depends on
-3. Define `tools.py` — implement `read_file`, `run_bash`, `git_diff` as Anthropic SDK tool definitions
-4. Build `context` step end-to-end — one working step as the template for the rest
-5. Write `prompts/context.md` — iterate on the system prompt with real usage before generalizing
-6. Add the remaining 6 steps following the same pattern
-7. Implement backward navigation and within-step iteration loop
-8. Token optimization pass — selective field injection, prompt caching, summarization hook
-9. Write setup docs — install instructions, `ANTHROPIC_API_KEY` config, optional Claude Code integration
+**Completed (S1):**
+1. ✅ S1.1 — Set up `pyproject.toml` with `anthropic` and `click` as deps
+2. ✅ S1.2 — Scaffold `workflow.py` with Click dispatch; tool call loop (temporary in workflow.py, moves to S2.2)
+3. ✅ S1.3 — Implement `state.py` persistence layer (opaque JSON storage; backward navigation with status cascade)
+
+**Next (S2+):**
+4. Define `tools.py` — implement `read_file`, `run_bash`, `git_diff` as Anthropic SDK tool definitions
+5. Build `context` step end-to-end — one working step as the template for the rest
+6. Write `prompts/context.md` — iterate on the system prompt with real usage before generalizing
+7. Add the remaining 6 steps following the same pattern
+8. Implement backward navigation without full invalidation (user-guided revision; deferred from S1.3)
+9. Token optimization pass — selective field injection, prompt caching, summarization hook
+10. Write setup docs — install instructions, `ANTHROPIC_API_KEY` config, optional Claude Code integration
 
 ---
 
