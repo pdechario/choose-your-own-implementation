@@ -14,11 +14,11 @@
 | 38 | [Directory Layout](#directory-layout) | File structure and state files | all project files |
 | 84 | [Workflow Navigation](#workflow-navigation) | CYOA UX, forward/backward/iteration | (cross-cutting) |
 | 148 | [The 7 Steps](#the-7-steps) | Step-by-step specifications and schemas | steps/*.py, prompts/*.md |
-| 400 | [GitHub Integration](#github-integration) | KANBAN sync, story references | .github/scripts/sync_kanban.py, KANBAN.md |
-| 437 | [Token Efficiency](#token-efficiency) | Model tiering, caching, selective injection | (cross-cutting) |
-| 459 | [Open Questions](#open-questions) | Unresolved design questions | (varies by question) |
-| 475 | [Implementation Progress](#implementation-progress) | S1+ completion status | STORY_CONTEXT.md |
-| 495 | [Verification](#verification) | Testing checklist for each step | (integration test) |
+| 452 | [GitHub Integration](#github-integration) | KANBAN sync, story references | .github/scripts/sync_kanban.py, KANBAN.md |
+| 489 | [Token Efficiency](#token-efficiency) | Model tiering, caching, selective injection | (cross-cutting) |
+| 511 | [Open Questions](#open-questions) | Unresolved design questions | (varies by question) |
+| 520 | [Implementation Progress](#implementation-progress) | S1+ completion status | STORY_CONTEXT.md |
+| 543 | [Verification](#verification) | Testing checklist for each step | (integration test) |
 
 Line numbers in this table are file line numbers. Use `Read` with `offset: <line>` to jump directly to a section. Update these numbers when sections are added or moved.
 
@@ -132,12 +132,14 @@ Going back from step N to step M:
 4. Orchestrator presents choices: auto-re-run invalidated steps, or prompt before each
 
 ### Within-step iteration
-Each step runs a refinement loop before writing JSON:
+Each step runs a refinement loop before writing JSON (implemented as a dedicated story within each step epic):
 1. Claude produces candidate output
 2. User reads it; can provide feedback ("narrow the scope to auth only")
 3. Claude refines — same step, same model, prior attempt stays in context
 4. Loop exits on user approval (`approve` / `done` / empty enter)
 5. JSON is written only on approval
+
+This pattern is consistent across all 7 steps; each step epic includes a dedicated story for the iteration implementation.
 
 ### Decision Tree: `run-tests`
 `run-tests` has its own internal branching — it is not a simple pass/fail:
@@ -203,6 +205,10 @@ Steps are invoked as `python workflow.py step <name>`. The `/design-*` names are
 
 **Model:** `claude-haiku-4-5-20251001` — fast and cheap for codebase exploration
 
+**Verify (S3.5):**
+- `python workflow.py step context` produces valid `context.json` on a real small feature
+- Iteration loop works: give feedback mid-step, confirm Claude refines without writing JSON until approved
+
 ---
 
 ### 2. `spec` (`/design-spec`)
@@ -233,6 +239,10 @@ Steps are invoked as `python workflow.py step <name>`. The `/design-*` names are
 ```
 
 **Model:** `claude-sonnet-4-6` — complex reasoning required
+
+**Verify (S4.5):**
+- `spec.json` resolves open questions from `context.json`; chosen approach and rationale are present
+- Iteration loop works: provide feedback mid-step, confirm Claude refines without writing JSON until approved
 
 ---
 
@@ -268,6 +278,11 @@ Steps are invoked as `python workflow.py step <name>`. The `/design-*` names are
 
 **Model:** `claude-sonnet-4-6`
 
+**Verify (S5.6):**
+- `tests.json` covers all edge cases listed in `spec.json`
+- Test files exist on disk and fail (red) before `code` step runs
+- Iteration loop works: provide feedback mid-step, confirm Claude refines without writing JSON until approved
+
 ---
 
 ### 4. `code` (`/design-code`)
@@ -301,6 +316,11 @@ Steps are invoked as `python workflow.py step <name>`. The `/design-*` names are
 ```
 
 **Model:** `claude-sonnet-4-6` — requires reasoning about the codebase structure and spec requirements together
+
+**Verify (S6.6):**
+- `code.json` implementation tasks map directly to spec's API contracts
+- Written code makes the test suite go green
+- Iteration loop works: provide feedback mid-step, confirm Claude refines without writing JSON until approved
 
 ---
 
@@ -349,6 +369,11 @@ Does NOT read `code.json` — code quality is assessed by running the tests, not
 
 **Model:** `claude-haiku-4-5-20251001` — mechanical test execution and output parsing; escalates to Sonnet if failures need diagnostic reasoning
 
+**Verify (S7.7):**
+- Run unit tests on a real project; confirm `run_tests.json` captures pass/fail counts and failures
+- Simulate a failure; confirm all three branching options (back to code, re-run subset, skip) appear and work
+- Iteration loop works: provide feedback on test results, confirm Claude refines without writing JSON until approved
+
 ---
 
 ### 6. `review` (`/review-iterate-commit`)
@@ -379,6 +404,11 @@ Does NOT read `code.json` — code quality is assessed by running the tests, not
 ```
 
 **Model:** `claude-haiku-4-5-20251001` for mechanical checks; auto-escalate to `claude-sonnet-4-6` if divergences or blockers are found
+
+**Verify (S8.6):**
+- Linting runs; diff is reviewed against spec; commit message is drafted; blockers list is present
+- No uncommitted linting fixes remain
+- Iteration loop works: provide feedback mid-step, confirm Claude refines without writing JSON until approved
 
 ---
 
@@ -411,6 +441,11 @@ Does NOT read `code.json` — code quality is assessed by running the tests, not
 ```
 
 **Model:** `claude-haiku-4-5-20251001`
+
+**Verify (S9.6):**
+- `merge.json` contains coherent changelog entry and PR description draft
+- Stale TODO scan runs; written files match the merge plan
+- Iteration loop works: provide feedback mid-step, confirm Claude refines without writing JSON until approved
 
 ---
 
@@ -489,23 +524,31 @@ Requires `ANTHROPIC_API_KEY` to be set as a repo secret.
 2. ✅ S1.2 — Scaffold `workflow.py` with Click dispatch; tool call loop (temporary in workflow.py, moves to S2.2)
 3. ✅ S1.3 — Implement `state.py` persistence layer (opaque JSON storage; backward navigation with status cascade)
 
-**Next (S2+):**
-4. Define `tools.py` — implement `read_file`, `run_bash`, `git_diff` as Anthropic SDK tool definitions
-5. Build `context` step end-to-end — one working step as the template for the rest
-6. Write `prompts/context.md` — iterate on the system prompt with real usage before generalizing
-7. Add the remaining 6 steps following the same pattern
-8. Implement backward navigation without full invalidation (user-guided revision; deferred from S1.3)
-9. Token optimization pass — selective field injection, prompt caching, summarization hook
-10. Write setup docs — install instructions, `ANTHROPIC_API_KEY` config, optional Claude Code integration
+**In Progress / Next (S2–S9):**
+Each of the 7 step epics (S3–S9) follows the same pattern:
+- S*.1 — Write system prompt (`prompts/*.md`)
+- S*.2 — Implement step logic (reads prior state, calls Claude, writes output JSON)
+- S*.3 — Implement within-step iteration loop (user feedback → refine → approve → write)
+- S*.4/5 — Wire into routing; execute phase (if needed)
+- S*.5/6 — Verify (including iteration loop testing)
+
+**Next (S10+):**
+10. Implement forward/backward navigation menus (S10.1–S10.2)
+11. Re-run prompt for invalidated steps (S10.3)
+12. Token optimization pass — selective field injection, prompt caching, summarization hook
+13. Write setup docs — install instructions, `ANTHROPIC_API_KEY` config, optional Claude Code integration
 
 ---
 
 ## Verification
 
-- Run `python workflow.py step context` on a real small feature; confirm `context.json` is written with correct schema
-- Run `python workflow.py step spec`; confirm it reads only the needed fields from `context.json` and produces valid `spec.json`
-- Run `python workflow.py step run-tests` — choose unit-only suite, verify `run_tests.json` captures results; simulate a failure and confirm the branching options appear
-- Navigate backward: re-run `context` step, verify all downstream JSONs are marked `pending`
-- Test iteration loop: give feedback mid-step, verify Claude refines without writing JSON until approved
-- Test CYOA prompts: confirm that after each step, the tool presents numbered choices and waits for user input
-- Cost check: run a full workflow end-to-end, inspect Anthropic API logs for model tiers and cache hit rate
+**Per-step verification (S3–S9):**
+Each step's verify story includes iteration loop testing as part of the verification task. See the **Verify** subsection under each step above for specific criteria.
+
+**Integration verification:**
+- Run each step (context → spec → tests → code → run-tests → review → merge) in sequence on a real small feature
+- At each step, test the iteration loop: provide feedback, confirm Claude refines without writing JSON until approved
+- Navigate backward: from any step, go back to an earlier step, verify all downstream JSONs are marked `pending`
+- Test CYOA navigation: confirm that after each step, the tool presents numbered choices and waits for user input
+- Test run-tests branching: choose different suites, simulate failures, confirm branching options (back to code / re-run / skip)
+- Cost verification: run a full workflow end-to-end, inspect Anthropic API logs for model tiers and cache hit rate

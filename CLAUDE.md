@@ -9,6 +9,7 @@
 | 111 | [Token Optimization](#token-optimization) | Cost reduction strategies | (cross-cutting) |
 | 132 | [GitHub Integration](#github-integration) | KANBAN sync to Issues | .github/scripts/sync_kanban.py, KANBAN.md |
 | 175 | [Story Context](#story-context) | Prior implementation decisions, file-to-story lookup | STORY_CONTEXT.md |
+| 212 | [Local Development](#local-development) | Python version, local testing setup | (all test scripts) |
 
 Line numbers in this table are file line numbers. Use `Read` with `offset: <line>` to jump directly to a section. Update these numbers when sections are added or moved.
 
@@ -208,6 +209,12 @@ When a story is complete, add a row to the table. If there is a non-obvious deci
 3. **Within-step iteration**: Users refine each step before moving forward; JSON is written only on approval. This prevents wasted downstream work.
 4. **Backward navigation with invalidation**: When going back from step N to step M, all downstream steps are marked `pending` — this ensures consistency.
 5. **Selective field injection**: Each step only reads the prior state it needs. This keeps token usage low and makes the data flow explicit.
+
+## Local Development
+
+**Python version:** Always use `python3` when running scripts locally (not `python`). The `python` alias may not exist or may point to Python 2.x. Local test scripts should use `python3 script_name.py`.
+
+---
 
 ## Testing & Verification
 
